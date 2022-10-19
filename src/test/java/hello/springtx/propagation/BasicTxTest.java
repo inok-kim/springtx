@@ -1,6 +1,7 @@
 package hello.springtx.propagation;
 
 import lombok.extern.slf4j.Slf4j;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.interceptor.DefaultTransactionAttribute;
 
 import javax.sql.DataSource;
@@ -110,6 +112,23 @@ public class BasicTxTest {
 
         log.info("외부 트랜잭션 롤백");
         txManager.rollback(outer);
+
+    }
+    @Test
+    void innter_rollback() {
+        log.info("외부 트랜잭션 시작");
+        TransactionStatus outer = txManager.getTransaction(new DefaultTransactionAttribute());
+
+        log.info("내부 트랜잭션 시작");
+        TransactionStatus inner = txManager.getTransaction(new DefaultTransactionAttribute());
+
+        log.info("내부 트랜잭션 롤백");
+        txManager.rollback(inner); // rollback-only 설정 (신규 트랜잭션이 아니기 때문에 실제 롤백 호출X)
+
+        // org.springframework.transaction.UnexpectedRollbackException: Transaction rolled back because it has been marked as rollback-only
+        log.info("외부 트랜잭션 커밋");
+        Assertions.assertThatThrownBy(() -> txManager.commit(outer))
+                .isInstanceOf(UnexpectedRollbackException.class);
 
     }
 
